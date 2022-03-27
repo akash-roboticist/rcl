@@ -23,6 +23,7 @@ extern "C"
 
 #include "rcl/error_handling.h"
 #include "rcl/node.h"
+#include "rcl/graph.h"
 #include "rcutils/logging_macros.h"
 #include "rmw/error_handling.h"
 #include "rmw/validate_full_topic_name.h"
@@ -37,6 +38,57 @@ rcl_get_zero_initialized_subscription()
 {
   static rcl_subscription_t null_subscription = {0};
   return null_subscription;
+}
+
+//For Autodetect QoS option, get the qos profile from the publisher
+rcl_ret_t
+rcl_get_publisher_adaptive_qos(
+  const rcl_node_t * node,
+  const char * topic_name,
+  rmw_qos_profile_t * autodetected_qos_profile
+)
+{
+  rmw_topic_endpoint_info_array_t publisher_info_array;
+  rcl_allocator_t allocator = rcl_get_default_allocator();
+
+  rcl_ret_t ret = rcl_get_publishers_info_by_topic(
+  node,
+  &allocator,
+  topic_name,
+  false,
+  &publisher_info_array);
+
+  if (ret != RCL_RET_OK) {
+    RCL_SET_ERROR_MSG("Unable to determine publishers info for this topic for QoS adaptation.");
+    return ret;
+  }
+
+  // 2 possibilites exist, either all publishers have the same QoS profile, or they dont.
+  // If they are all the same, it is straightforward to pick this up for usage.
+  // If not, use best effort reliability + volatile durability, which is compatible with
+  // all QoS types - this is rmw_qos_profile_sensor_data
+
+  bool profile_similarity = true;
+  
+  for (size_t n=1; n < publisher_info_array.size; n++)
+  {
+    if((publisher_info_array.info_array[n].qos_profile, publisher_info_array.info_array[n-1].qos_profile, sizeof(publisher_info_array.info_array[n].qos_profile)) == 0)
+    {
+      profile_similarity = false;
+      break;
+    } 
+  }
+
+  if(profile_similarity) 
+  {
+    *autodetected_qos_profile = publisher_info_array.info_array[0].qos_profile;
+  }
+  else
+  {
+    *autodetected_qos_profile = rmw_qos_profile_sensor_data;  
+  }
+
+  return ret;
 }
 
 rcl_ret_t

@@ -63,6 +63,31 @@ RCL_WARN_UNUSED
 rcl_subscription_t
 rcl_get_zero_initialized_subscription(void);
 
+/// QoS auto detection logic.
+/**
+ * Under dev !!!
+ * This logic looks for pre-existing publishers and returns an appropriate
+ * QoS profile for subscriber on that topic
+ *
+ * This logic needs either a modification to the rcl_subscription_init in 
+ * on the following ways -
+ * A.1. A new rcl_adative_subscription_init function, wrapper around 
+ * rcl_subscription_init and uses rcl_get_publisher_adaptive_qos to determine 
+ * QoS first. 
+ * A.2. A new QoS profile (eg. rmw_qos_profile_autodetect) that triggers
+ * invoking of rcl_get_publisher_adaptive_qos
+ *
+ * or -
+ * B. Needs to be linked directly to a (new) API in rclcpp, rclpy to return 
+ * the QoS info for use with subscription init.
+ */
+rcl_ret_t
+rcl_get_publisher_adaptive_qos(
+  const rcl_node_t * node,
+  const char * topic_name,
+  rmw_qos_profile_t * autodetected_qos_profile
+);
+
 /// Initialize a ROS subscription.
 /**
  * After calling this function on a rcl_subscription_t, it can be used to take
